@@ -1,13 +1,12 @@
 /**
- *
- * Copyright © 2014-2021 Florian Schmaus
- *
+ * Copyright © 2014-2017 Florian Schmaus
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,13 +14,17 @@
  * limitations under the License.
  */
 
-package org.jivesoftware.smackx.ping.android;
+package com.example.chatpoc.messaging;
 
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.WeakHashMap;
-import java.util.logging.Logger;
+import android.annotation.SuppressLint;
+import android.app.AlarmManager;
+import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.os.Build;
+import android.os.SystemClock;
 
 import org.jivesoftware.smack.ConnectionCreationListener;
 import org.jivesoftware.smack.Manager;
@@ -30,13 +33,12 @@ import org.jivesoftware.smack.XMPPConnectionRegistry;
 import org.jivesoftware.smack.util.Async;
 import org.jivesoftware.smackx.ping.PingManager;
 
-import android.app.AlarmManager;
-import android.app.PendingIntent;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.os.SystemClock;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.WeakHashMap;
+import java.util.logging.Logger;
 
 /**
  * Send automatic server pings with the help of {@link AlarmManager}.
@@ -79,12 +81,6 @@ public final class ServerPingWithAlarmManager extends Manager {
         });
     }
 
-    /**
-     * Get the instance of this manager for the given connection.
-     *
-     * @param connection the connection.
-     * @return the instance of this manager for the given connection.
-     */
     public static synchronized ServerPingWithAlarmManager getInstanceFor(XMPPConnection connection) {
         ServerPingWithAlarmManager serverPingWithAlarmManager = INSTANCES.get(connection);
         if (serverPingWithAlarmManager == null) {
@@ -110,11 +106,6 @@ public final class ServerPingWithAlarmManager extends Manager {
         mEnabled = enabled;
     }
 
-    /**
-     * Check if this manager is enabled.
-     *
-     * @return <code>true</code> if this manager is enabled, <code>false</code> otherwise.
-     */
     public boolean isEnabled() {
         return mEnabled;
     }
@@ -123,14 +114,14 @@ public final class ServerPingWithAlarmManager extends Manager {
         @Override
         public void onReceive(Context context, Intent intent) {
             LOGGER.fine("Ping Alarm broadcast received");
-            Set<Map.Entry<XMPPConnection, ServerPingWithAlarmManager>> managers;
+            Set<Entry<XMPPConnection, ServerPingWithAlarmManager>> managers;
             synchronized (ServerPingWithAlarmManager.class) {
                 // Make a copy to avoid ConcurrentModificationException when
                 // iterating directly over INSTANCES and the Set is modified
                 // concurrently by creating a new ServerPingWithAlarmManager.
                 managers = new HashSet<>(INSTANCES.entrySet());
             }
-            for (Map.Entry<XMPPConnection, ServerPingWithAlarmManager> entry : managers) {
+            for (Entry<XMPPConnection, ServerPingWithAlarmManager> entry : managers) {
                 XMPPConnection connection = entry.getKey();
                 if (entry.getValue().isEnabled()) {
                     LOGGER.fine("Calling pingServerIfNecessary for connection "
@@ -169,11 +160,19 @@ public final class ServerPingWithAlarmManager extends Manager {
      *
      * @param context an Android context.
      */
+    @SuppressLint("UnspecifiedImmutableFlag")
     public static void onCreate(Context context) {
         sContext = context;
         context.registerReceiver(ALARM_BROADCAST_RECEIVER, new IntentFilter(PING_ALARM_ACTION));
         sAlarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-        sPendingIntent = PendingIntent.getBroadcast(context, 0, new Intent(PING_ALARM_ACTION), 0);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            sPendingIntent = PendingIntent.getBroadcast(context, 0, new Intent(PING_ALARM_ACTION),
+                    PendingIntent.FLAG_IMMUTABLE);
+        } else {
+            sPendingIntent = PendingIntent.getBroadcast(context, 0, new Intent(PING_ALARM_ACTION), 0);
+        }
+
         sAlarmManager.setInexactRepeating(AlarmManager.ELAPSED_REALTIME_WAKEUP,
                 SystemClock.elapsedRealtime() + AlarmManager.INTERVAL_HALF_HOUR,
                 AlarmManager.INTERVAL_HALF_HOUR, sPendingIntent);
